@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../config/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useTasks } from '../hooks/useTasks';
 import { StatusBar } from '../app/components/StatusBar';
@@ -12,6 +13,26 @@ export default function Profile() {
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [profile, setProfile] = useState({ role: 'Lead Administrator', team: 'Operations', full_name: '' });
+
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!user?.email) return;
+      try {
+        const { data, error } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('email', user.email)
+          .single();
+        
+        if (error) throw error;
+        if (data) setProfile(data);
+      } catch (err) {
+        console.error('Profile fetch error:', err);
+      }
+    }
+    fetchProfile();
+  }, [user]);
 
   const handleSignOut = async () => {
     try {
@@ -26,6 +47,39 @@ export default function Profile() {
     created: tasks.filter(t => t.created_by === user?.id).length,
     assigned: tasks.filter(t => t.assigned_to === (user?.email || 'Alice')).length, // Mock logic for assigned
     completed: tasks.filter(t => t.status === 'done' && (t.assigned_to === user?.email || t.created_by === user?.id)).length
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    const toastId = toast.loading('Uploading avatar...');
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `avatars/${user.id}-${Date.now()}.${ext}`;
+      
+      const { error: uploadErr } = await supabase.storage
+        .from('task-media')
+        .upload(path, file, { contentType: file.type });
+      
+      if (uploadErr) throw uploadErr;
+      
+      const publicUrl = supabase.storage.from('task-media').getPublicUrl(path).data.publicUrl;
+      
+      // Update employee profile with new avatar URL
+      const { error: updateErr } = await supabase
+        .from('employees')
+        .update({ avatar_url: publicUrl })
+        .eq('email', user.email);
+        
+      if (updateErr) throw updateErr;
+      
+      setProfile(prev => ({ ...prev, avatar_url: publicUrl }));
+      toast.success('Avatar updated', { id: toastId });
+    } catch (err) {
+      toast.error('Upload failed', { id: toastId });
+      console.error(err);
+    }
   };
 
   const userInitials = user?.email?.substring(0, 2).toUpperCase() || 'AD';
@@ -57,21 +111,24 @@ export default function Profile() {
         {/* Avatar and Name */}
         <div className="flex flex-col items-center animate-slide-up">
           <div className="relative mb-4">
-            <div className="w-[80px] h-[80px] rounded-full bg-[#1A1A1A] flex items-center justify-center text-[#FFDD00]" style={{ fontSize: '32px', fontWeight: 600 }}>
-              {userInitials}
+            <div className="w-[80px] h-[80px] rounded-full bg-[#1A1A1A] flex items-center justify-center text-[#FFDD00] overflow-hidden" style={{ fontSize: '32px', fontWeight: 600 }}>
+              {profile.avatar_url ? (
+                <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+              ) : userInitials}
             </div>
-            <button className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-white border-2 border-[#FFDD00] flex items-center justify-center cursor-pointer shadow-sm active:scale-90 transition-transform">
+            <label className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-white border-2 border-[#FFDD00] flex items-center justify-center cursor-pointer shadow-sm active:scale-90 transition-transform">
+              <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                 <circle cx="12" cy="13" r="4" />
               </svg>
-            </button>
+            </label>
           </div>
           <h2 className="text-[#1A1A1A] mb-1 capitalize" style={{ fontSize: '20px', fontWeight: 600 }}>
-            {userName}
+            {profile.full_name || userName}
           </h2>
           <p className="text-[#1A1A1A] opacity-60" style={{ fontSize: '12px', fontWeight: 400 }}>
-            Administrator · Operations · Dev Team
+            {profile.role} · {profile.team}
           </p>
         </div>
       </div>
@@ -98,10 +155,10 @@ export default function Profile() {
         <section>
           <h3 className="text-[#AAAAAA] uppercase mb-3 text-[10px] font-semibold tracking-widest">Personal Info</h3>
           <div className="flex flex-col">
-            <ProfileRow icon={<UserIcon />} label="Full name" value={userName} />
-            <ProfileRow icon={<BriefcaseIcon />} label="Role" value="Administrator" />
+            <ProfileRow icon={<UserIcon />} label="Full name" value={profile.full_name || userName} />
+            <ProfileRow icon={<BriefcaseIcon />} label="Role" value={profile.role} />
             <ProfileRow icon={<MailIcon />} label="Email" value={user?.email || 'admin@co.com'} />
-            <ProfileRow icon={<UsersIcon />} label="Team" value="Dev Team" />
+            <ProfileRow icon={<UsersIcon />} label="Team" value={profile.team} />
           </div>
         </section>
 

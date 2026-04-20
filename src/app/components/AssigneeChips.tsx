@@ -1,42 +1,35 @@
-import { useState } from 'react';
-
 interface AssigneeChipsProps {
   assignees: string[];
   value: string;
-  onChange: (assignee: string) => void;
+  onChange: (value: string) => void;
 }
 
 export function AssigneeChips({ assignees, value, onChange }: AssigneeChipsProps) {
   return (
-    <div className="flex flex-col" style={{ gap: '4px' }}>
+    <div className="flex flex-col gap-2">
       <label 
-        className="text-[#1A1A1A] uppercase tracking-wider"
-        style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.6px' }}
+        className="text-[#1A1A1A] font-bold uppercase tracking-[1px] text-[10px]"
       >
-        ASSIGNEE<span className="text-[#E24B4A] ml-0.5">*</span>
+        ASSIGN TO
       </label>
-      <div className="flex overflow-x-auto gap-1.5" style={{ gap: '6px' }}>
-        {assignees.map((assignee) => (
-          <button
-            key={assignee}
-            type="button"
-            onClick={() => onChange(assignee)}
-            className={`flex-1 min-w-[80px] h-7 rounded transition-default ${
-              value === assignee 
-                ? 'bg-[#1A1A1A] text-[#FFDD00]' 
-                : 'bg-[#F5F5F5] text-[#1A1A1A]'
-            }`}
-            style={{ 
-              fontSize: '10px', 
-              fontWeight: 500,
-              borderRadius: '4px',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            {assignee}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2 py-1">
+        {assignees.map((assignee) => {
+          const isActive = value === assignee;
+          return (
+            <button
+              key={assignee}
+              type="button"
+              onClick={() => onChange(assignee)}
+              className={`h-[32px] rounded-[8px] border-none text-[12px] font-semibold transition-all cursor-pointer whitespace-nowrap px-4 shadow-sm active:scale-95 ${
+                isActive 
+                  ? 'bg-[#1A1A1A] text-[#FFDD00] ring-2 ring-[#FFDD00] ring-offset-2' 
+                  : 'bg-[#F5F5F5] text-[#1A1A1A] hover:bg-[#ECECEC]'
+              }`}
+            >
+              {assignee}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

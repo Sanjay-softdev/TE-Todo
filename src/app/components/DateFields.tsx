@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { format } from 'date-fns';
 
 interface DateFieldsProps {
@@ -14,51 +13,39 @@ export function DateFields({
   onStartDateChange, 
   onEndDateChange 
 }: DateFieldsProps) {
-  const formatDisplayDate = (dateString: string) => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      return format(date, 'MMM d, yyyy');
-    } catch {
-      return dateString;
-    }
+  
+  const inputStyles = "w-full bg-[#F5F5F5] border-none rounded-[6px] text-[#1A1A1A] transition-default focus:ring-2 focus:ring-[#FFDD00] focus:ring-offset-0";
+  const inlineStyles = {
+    padding: '9px 10px',
+    fontSize: '12px',
+    fontWeight: 400
   };
 
   return (
-    <div className="flex flex-col" style={{ gap: '4px' }}>
-      <label 
-        className="text-[#1A1A1A] uppercase tracking-wider"
-        style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.6px' }}
-      >
-        DUE DATE<span className="text-[#E24B4A] ml-0.5">*</span>
-      </label>
-      <div className="grid grid-cols-2" style={{ gap: '6px' }}>
-        <div className="relative">
+    <div className="flex flex-col gap-1">
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="flex flex-col gap-1">
+           <label className="text-[#1A1A1A] font-medium uppercase tracking-[0.6px]" style={{ fontSize: '9px' }}>
+            ASSIGNED DATE
+          </label>
           <input
             type="date"
             value={startDate}
             onChange={(e) => onStartDateChange(e.target.value)}
-            aria-required={true}
-            className="w-full bg-[#F5F5F5] border-none rounded-md text-[#1A1A1A] transition-default focus:outline-none focus:ring-2 focus:ring-[#FFDD00]"
-            style={{ 
-              fontSize: '12px',
-              padding: '9px 10px',
-              borderRadius: '6px'
-            }}
+            className={inputStyles}
+            style={inlineStyles}
           />
         </div>
-        <div className="relative">
+        <div className="flex flex-col gap-1">
+           <label className="text-[#1A1A1A] font-medium uppercase tracking-[0.6px]" style={{ fontSize: '9px' }}>
+            DUE DATE<span className="text-[#E24B4A] ml-0.5">*</span>
+          </label>
           <input
             type="date"
             value={endDate}
             onChange={(e) => onEndDateChange(e.target.value)}
-            aria-required={true}
-            className="w-full bg-[#F5F5F5] border-none rounded-md text-[#1A1A1A] transition-default focus:outline-none focus:ring-2 focus:ring-[#FFDD00]"
-            style={{ 
-              fontSize: '12px',
-              padding: '9px 10px',
-              borderRadius: '6px'
-            }}
+            className={inputStyles}
+            style={inlineStyles}
           />
         </div>
       </div>

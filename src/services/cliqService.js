@@ -1,14 +1,25 @@
 import { WEBHOOK_URLS } from '../config/webhooks'
 
 export async function sendCliqAlert(task) {
-  const webhookUrl = WEBHOOK_URLS[task.assigned_to] ?? WEBHOOK_URLS.default
-  if (!webhookUrl) return // no webhook configured — skip silently
+  // Use the specific webhook for the assignee, or fallback to the default
+  const webhookUrl = WEBHOOK_URLS[task.assigned_to] || WEBHOOK_URLS.default
+  
+  if (!webhookUrl) {
+    return;
+  }
 
-  const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US',
-    { month:'short', day:'numeric', year:'numeric' }) : 'Not set'
+  const formatDate = (d) => {
+    if (!d) return 'Not set';
+    return new Date(d).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  };
 
+  // Zoho Cliq Webhook Payload
   const payload = {
-    text: `New task assigned${task.assigned_to ? ` to ${task.assigned_to}` : ''}`,
+    text: `🚨 *New Task Assigned*`,
     card: {
       title: task.title,
       theme: "modern-inline"
@@ -17,46 +28,28 @@ export async function sendCliqAlert(task) {
       {
         type: "label",
         data: [
-          {
-            label: "Assigned to",
-            value: task.assigned_to ?? "Unassigned"
-          },
-          {
-            label: "Due date",
-            value: formatDate(task.due_date)
-          },
-          {
-            label: "Assigned date",
-            value: formatDate(task.assigned_date)
-          },
-          {
-            label: "Description",
-            value: task.description ?? "—"
-          },
-          {
-            label: "Voice transcript",
-            value: task.voice_transcript ?? "—"
-          },
-          {
-            label: "Status",
-            value: "Pending"
-          }
+          { label: "Assigned to", value: task.assigned_to || "Unassigned" },
+          { label: "Due Date", value: formatDate(task.due_date) },
+          { label: "Description", value: task.description || "No description provided." },
+          { label: "Status", value: "Pending" }
         ]
       }
     ]
-  }
+  };
 
   try {
-    const response = await fetch(webhookUrl, {
+    // We use mode: 'no-cors' because Zoho Cliq webhooks typically don't have CORS headers for browser-side fetch.
+    // This allows the request to be sent ('opaque' response), which is fine for fire-and-forget notifications.
+    await fetch(webhookUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors', 
+      headers: {
+        'Content-Type': 'text/plain', // Using text/plain to avoid preflight CORS check in no-cors mode
+      },
       body: JSON.stringify(payload)
-    })
-
-    if (!response.ok) {
-      console.error(`Cliq notification failed: ${response.status}`)
-    }
+    });
   } catch (err) {
-    console.error('Cliq notification error:', err)
+    // Silently fail as per master prompt requirements
+    console.error('Notification failed to send:', err);
   }
 }

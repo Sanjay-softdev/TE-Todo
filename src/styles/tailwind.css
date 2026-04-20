@@ -1,4 +1,14 @@
-@import 'tailwindcss' source(none);
-@source '../**/*.{js,ts,jsx,tsx}';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@import 'tw-animate-css';
+/* Custom utility for no-scrollbar if needed */
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

@@ -1,22 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
-import { useTasks } from '../hooks/useTasks';
-import { formatDate, getRelativeTime } from '../utils/formatters';
 import { StatusBar } from '../app/components/StatusBar';
+import { formatDate, getRelativeTime } from '../utils/formatters';
 import { toast } from 'sonner';
 
 export default function TaskDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { updateTaskStatus } = useTasks();
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     async function fetchTask() {
-      setLoading(true);
       try {
         const { data, error } = await supabase
           .from('tasks')
@@ -27,7 +24,6 @@ export default function TaskDetail() {
         if (error) throw error;
         setTask(data);
       } catch (err) {
-        console.error('Error fetching task:', err);
         toast.error('Task not found');
         navigate('/dashboard');
       } finally {
@@ -37,145 +33,174 @@ export default function TaskDetail() {
     fetchTask();
   }, [id, navigate]);
 
-  const handleStatusChange = async (newStatus) => {
-    if (task.status === newStatus || updatingStatus) return;
+  const handleStatusUpdate = async (newStatus) => {
+    if (task.status === newStatus) return;
     
-    setUpdatingStatus(true);
+    setUpdating(true);
+    const oldStatus = task.status;
+    setTask({ ...task, status: newStatus }); // Optimistic update
+
     try {
-      await updateTaskStatus(task.id, newStatus);
-      setTask(prev => ({ ...prev, status: newStatus }));
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
       toast.success(`Status updated to ${newStatus.replace('_', ' ')}`);
     } catch (err) {
       toast.error('Failed to update status');
+      setTask({ ...task, status: oldStatus }); // Revert on error
     } finally {
-      setUpdatingStatus(false);
+      setUpdating(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="w-10 h-10 bg-[#FFDD00] rounded-full animate-pulse" />
       </div>
     );
   }
 
-  if (!task) return null;
+  const userInitials = task.assigned_to?.substring(0, 2).toUpperCase() || 'NA';
 
   return (
-    <div className="min-h-screen bg-white pb-10">
+    <div className="min-h-screen bg-white flex flex-col max-w-[420px] mx-auto w-full animate-slide-up">
       <StatusBar />
       
       {/* App Bar */}
-      <div className="h-16 bg-[#FFDD00] px-4 flex items-center gap-4 sticky top-0 z-10">
+      <div className="bg-[#FFDD00] h-[64px] px-4 flex items-center gap-3 sticky top-0 z-10 shadow-sm shrink-0">
         <button
           onClick={() => navigate(-1)}
-          className="w-9 h-9 rounded-full bg-[#1A1A1A] flex items-center justify-center border-none cursor-pointer transition-default active:scale-90"
+          className="w-[34px] h-[34px] bg-[#1A1A1A] rounded-full flex items-center justify-center border-none cursor-pointer active:scale-90 transition-default"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFDD00" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6" />
+            <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
-        <h1 className="text-[#1A1A1A] text-base font-semibold">Task Detail</h1>
+        <h1 className="text-[#1A1A1A] font-semibold text-[15px]">Task detail</h1>
       </div>
 
-      <div className="px-5 py-6 flex flex-col gap-6 animate-slide-up">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-6 flex flex-col gap-6 pb-12">
+        
         {/* Title Section */}
-        <div>
-          <p className="text-[#888888] text-[10px] font-semibold uppercase tracking-wider mb-1">Title</p>
-          <h2 className="text-[#1A1A1A] text-lg font-semibold leading-tight">{task.title}</h2>
+        <div className="flex flex-col">
+          <p className="text-[#888888] font-medium uppercase tracking-[0.6px] text-[10px] mb-1">TITLE</p>
+          <h2 className="text-[16px] font-semibold text-[#1A1A1A] leading-[1.3]">{task.title}</h2>
         </div>
 
         {/* Description Section */}
         {task.description && (
-          <div>
-            <p className="text-[#888888] text-[10px] font-semibold uppercase tracking-wider mb-1">Description</p>
-            <p className="text-[#888888] text-[13px] leading-relaxed">{task.description}</p>
+          <div className="flex flex-col">
+            <p className="text-[#888888] font-medium uppercase tracking-[0.6px] text-[10px] mb-1">DESCRIPTION</p>
+            <p className="text-[13px] text-[#888888] leading-[1.6]">{task.description}</p>
           </div>
         )}
 
-        {/* Assigned Section */}
-        <div className="bg-[#F5F5F5] rounded-xl p-3.5 flex items-center gap-3.5">
-          <div className="w-10 h-10 bg-[#1A1A1A] rounded-full flex items-center justify-center text-[#FFDD00] text-sm font-semibold">
-             {(task.assigned_to || 'AD').substring(0, 2).toUpperCase()}
-          </div>
-          <div>
-            <p className="text-[#1A1A1A] text-[13px] font-semibold leading-none mb-1">{task.assigned_to || 'Unassigned'}</p>
-            <p className="text-[#888888] text-[11px] leading-none">Notified via Zoho Cliq</p>
-          </div>
-        </div>
-
-        {/* Dates Section */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-[#F5F5F5] rounded-lg p-3">
-            <p className="text-[#AAAAAA] text-[9px] font-semibold uppercase tracking-wider mb-1">Assigned</p>
-            <p className="text-[#1A1A1A] text-[13px] font-semibold">{formatDate(task.assigned_date)}</p>
-          </div>
-          <div className="bg-[#F5F5F5] rounded-lg p-3">
-            <p className="text-[#AAAAAA] text-[9px] font-semibold uppercase tracking-wider mb-1">Due Date</p>
-            <p className="text-[#1A1A1A] text-[13px] font-semibold">{formatDate(task.due_date)}</p>
+        {/* Assigned To Section */}
+        <div className="flex flex-col">
+          <p className="text-[#888888] font-medium uppercase tracking-[0.6px] text-[10px] mb-2">ASSIGNED TO</p>
+          <div className="bg-[#F5F5F5] rounded-[10px] p-[11px] flex items-center gap-3">
+            <div className="w-[34px] h-[34px] bg-[#1A1A1A] rounded-full flex items-center justify-center text-[#FFDD00] text-[12px] font-medium">
+              {userInitials}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[13px] font-medium text-[#1A1A1A]">{task.assigned_to || 'Unassigned'}</span>
+              <span className="text-[11px] text-[#888888]">Notified via Zoho Cliq</span>
+            </div>
           </div>
         </div>
 
-        {/* Status Picker Section */}
-        <div>
-          <p className="text-[#888888] text-[10px] font-semibold uppercase tracking-wider mb-2">Status</p>
-          <div className="flex gap-1.5 h-11">
-            {['pending', 'in_progress', 'done'].map((s) => {
-              const isActive = task.status === s;
-              let style = 'bg-[#F5F5F5] text-[#888888]';
-              if (isActive) {
-                if (s === 'pending') style = 'bg-[#FFDD00] text-[#1A1A1A]';
-                if (s === 'in_progress') style = 'bg-[#1A1A1A] text-[#FFDD00]';
-                if (s === 'done') style = 'bg-[#EAF3DE] text-[#3B6D11]';
-              }
-              return (
-                <button
-                  key={s}
-                  onClick={() => handleStatusChange(s)}
-                  disabled={updatingStatus}
-                  className={`flex-1 rounded-lg border-none cursor-pointer transition-default font-medium text-xs ${style} ${updatingStatus ? 'opacity-50' : 'active:scale-95'}`}
-                >
-                  {s.replace('_', ' ').charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
-                </button>
-              );
-            })}
+        {/* Dates Grid */}
+        <div className="flex flex-col">
+          <p className="text-[#888888] font-medium uppercase tracking-[0.6px] text-[10px] mb-2">DATES</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-[#F5F5F5] rounded-[8px] p-[10px]">
+              <p className="text-[9px] font-medium uppercase text-[#AAAAAA] mb-[3px]">ASSIGNED</p>
+              <p className={`text-[13px] font-semibold ${task.assigned_date ? 'text-[#1A1A1A]' : 'text-[#888888]'}`}>
+                {task.assigned_date ? formatDate(task.assigned_date) : 'Not set'}
+              </p>
+            </div>
+            <div className="bg-[#F5F5F5] rounded-[8px] p-[10px]">
+              <p className="text-[9px] font-medium uppercase text-[#AAAAAA] mb-[3px]">DUE DATE</p>
+              <p className={`text-[13px] font-semibold ${task.due_date ? 'text-[#1A1A1A]' : 'text-[#888888]'}`}>
+                {task.due_date ? formatDate(task.due_date) : 'Not set'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Status Update Section */}
+        <div className="flex flex-col">
+          <p className="text-[#888888] font-medium uppercase tracking-[0.6px] text-[10px] mb-2">STATUS</p>
+          <div className="flex gap-[6px] w-full">
+            {[
+              { id: 'pending', label: 'Pending', activeClass: 'bg-[#FFDD00] text-[#1A1A1A]' },
+              { id: 'in_progress', label: 'In Progress', activeClass: 'bg-[#1A1A1A] text-[#FFDD00]' },
+              { id: 'done', label: 'Done', activeClass: 'bg-[#EAF3DE] text-[#3B6D11]' }
+            ].map((s) => (
+              <button
+                key={s.id}
+                onClick={() => handleStatusUpdate(s.id)}
+                disabled={updating}
+                className={`flex-1 h-[44px] rounded-[8px] text-[12px] font-medium transition-all border-none cursor-pointer flex items-center justify-center ${
+                  task.status === s.id ? s.activeClass : 'bg-[#F5F5F5] text-[#888888]'
+                } ${updating ? 'opacity-60 cursor-wait' : ''}`}
+              >
+                {s.label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Transcript Section */}
         {task.voice_transcript && (
-          <div>
-            <p className="text-[#888888] text-[10px] font-semibold uppercase tracking-wider mb-2">Voice Transcript</p>
-            <div className="bg-[#1A1A1A] rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-2 h-2 rounded-full bg-[#FFDD00]" />
-                <span className="text-[#FFDD00] text-[11px] font-medium">Transcribed note</span>
+          <div className="flex flex-col">
+            <p className="text-[#888888] font-medium uppercase tracking-[0.6px] text-[10px] mb-2">VOICE TRANSCRIPT</p>
+            <div className="bg-[#1A1A1A] rounded-[10px] p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-[8px] h-[8px] bg-[#FFDD00] rounded-full" />
+                <span className="text-[11px] font-medium text-[#FFDD00]">Transcribed note</span>
               </div>
-              <p className="text-[#777777] text-[12px] leading-relaxed">{task.voice_transcript}</p>
+              <p className="text-[12px] text-[#777777] leading-[1.5] font-normal">{task.voice_transcript}</p>
             </div>
           </div>
         )}
 
-        {/* Audio Player */}
+        {/* Audio Section */}
         {task.audio_url && (
-          <div>
-            <p className="text-[#888888] text-[10px] font-semibold uppercase tracking-wider mb-2">Voice Note</p>
-            <audio controls src={task.audio_url} className="w-full h-10 bg-[#F5F5F5] rounded-lg border-none outline-none" />
+          <div className="flex flex-col">
+            <p className="text-[#888888] font-medium uppercase tracking-[0.6px] text-[10px] mb-2">VOICE NOTE</p>
+            <audio controls src={task.audio_url} className="w-full h-[44px] bg-[#F5F5F5] rounded-[8px]" />
           </div>
         )}
 
         {/* Screenshot Section */}
         {task.screenshot_url && (
-          <div>
-            <p className="text-[#888888] text-[10px] font-semibold uppercase tracking-wider mb-2">Screenshot</p>
-            <img src={task.screenshot_url} alt="Task screenshot" className="w-full rounded-xl border-[0.5px] border-[#ECECEC] object-cover max-h-[300px]" loading="lazy" />
+          <div className="flex flex-col">
+            <p className="text-[#888888] font-medium uppercase tracking-[0.6px] text-[10px] mb-2">SCREENSHOT</p>
+            <a 
+              href={task.screenshot_url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="block w-full overflow-hidden rounded-[10px] border-[0.5px] border-[#ECECEC] active:scale-[0.98] transition-all"
+            >
+              <img 
+                src={task.screenshot_url} 
+                alt="Task screenshot" 
+                className="w-full max-h-[200px] object-cover block hover:brightness-95 transition-all cursor-zoom-in" 
+              />
+            </a>
           </div>
         )}
 
         {/* Metadata */}
-        <div className="text-center py-4">
-           <p className="text-[#AAAAAA] text-[11px]">Created {getRelativeTime(task.created_at)}</p>
+        <div className="mt-4 pt-4 border-t border-[#F5F5F5]">
+          <p className="text-[11px] font-normal text-[#AAAAAA]">
+            Created {getRelativeTime(task.created_at)}
+          </p>
         </div>
       </div>
     </div>

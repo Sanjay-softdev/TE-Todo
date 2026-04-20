@@ -5,11 +5,13 @@ export function useVoiceRecorder() {
   const [audioBlob, setAudioBlob] = useState(null)
   const [audioUrl, setAudioUrl] = useState(null)
   const [recordingSeconds, setRecordingSeconds] = useState(0)
+  const [liveTranscript, setLiveTranscript] = useState('')
   
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
   const streamRef = useRef(null)
   const timerRef = useRef(null)
+  const recognitionRef = useRef(null)
 
   const startRecording = useCallback(async () => {
     try {
@@ -34,15 +36,39 @@ export function useVoiceRecorder() {
         setAudioBlob(blob)
         const url = URL.createObjectURL(blob)
         setAudioUrl(url)
-        
-        // Stop all tracks
         streamRef.current?.getTracks().forEach(t => t.stop())
-      }
+      };
       
+      // Web Speech API Integration
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition()
+        recognition.continuous = true
+        recognition.interimResults = true
+        recognition.lang = 'en-US'
+        
+        let finalTranscript = ''
+        recognition.onresult = (event) => {
+          let interimTranscript = ''
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript
+            } else {
+              interimTranscript += event.results[i][0].transcript
+            }
+          }
+          setLiveTranscript(finalTranscript + interimTranscript)
+        }
+        
+        recognition.start()
+        recognitionRef.current = recognition
+      }
+
       recorder.start(250)
       mediaRecorderRef.current = recorder
       setIsRecording(true)
       setRecordingSeconds(0)
+      setLiveTranscript('')
       
       timerRef.current = setInterval(() => {
         setRecordingSeconds(s => s + 1)
@@ -57,6 +83,9 @@ export function useVoiceRecorder() {
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+      }
       clearInterval(timerRef.current)
       setIsRecording(false)
     }
@@ -67,12 +96,14 @@ export function useVoiceRecorder() {
     setAudioBlob(null)
     setAudioUrl(null)
     setRecordingSeconds(0)
+    setLiveTranscript('')
   }, [audioUrl])
 
   useEffect(() => {
     return () => {
       clearInterval(timerRef.current)
       streamRef.current?.getTracks().forEach(t => t.stop())
+      if (recognitionRef.current) recognitionRef.current.stop()
       if (audioUrl) URL.revokeObjectURL(audioUrl)
     }
   }, [audioUrl])
@@ -82,6 +113,7 @@ export function useVoiceRecorder() {
     audioBlob,
     audioUrl,
     recordingSeconds,
+    liveTranscript,
     startRecording,
     stopRecording,
     clearRecording

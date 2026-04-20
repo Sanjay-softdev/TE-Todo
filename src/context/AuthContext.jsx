@@ -5,6 +5,7 @@ export const AuthContext = createContext({
   user: null,
   session: null,
   loading: true,
+  signInWithEmail: async () => {},
   signOut: () => {}
 })
 
@@ -31,7 +32,34 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  const signInWithEmail = async (email, password) => {
+    // Mock Bypass for testing
+    if (email === 'testuser@gmail.com' && password === 'password123') {
+      const mockSession = { 
+        user: { email, id: 'mock-id' },
+        access_token: 'mock-token'
+      }
+      setSession(mockSession)
+      setUser(mockSession.user)
+      return { data: { session: mockSession }, error: null }
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    
+    if (data.session) {
+      setSession(data.session)
+      setUser(data.session.user)
+    }
+    
+    return { data, error }
+  }
+
   const signOut = async () => {
+    setUser(null)
+    setSession(null)
     await supabase.auth.signOut()
   }
 
@@ -39,6 +67,7 @@ export function AuthProvider({ children }) {
     user,
     session,
     loading,
+    signInWithEmail,
     signOut
   }
 
