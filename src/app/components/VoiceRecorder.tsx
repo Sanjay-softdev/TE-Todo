@@ -1,33 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 
 interface VoiceRecorderProps {
   isRecording: boolean;
-  onStartRecording: () => void;
-  onStopRecording: () => void;
+  recordingSeconds: number;
   transcript: string;
+  isTranscribing: boolean;
   onTranscriptChange: (text: string) => void;
+  onStopRecording: () => void;
+  onStartRecording: () => void;
 }
 
 export function VoiceRecorder({ 
   isRecording, 
-  onStartRecording, 
-  onStopRecording,
+  recordingSeconds,
   transcript,
-  onTranscriptChange
+  isTranscribing,
+  onTranscriptChange,
+  onStopRecording,
+  onStartRecording
 }: VoiceRecorderProps) {
-  const [recordingTime, setRecordingTime] = useState(0);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isRecording) {
-      interval = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-    } else {
-      setRecordingTime(0);
-    }
-    return () => clearInterval(interval);
-  }, [isRecording]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -38,54 +29,53 @@ export function VoiceRecorder({
   if (isRecording) {
     return (
       <div 
-        className="w-full bg-[#1A1A1A] rounded-md flex items-center justify-between"
-        style={{ 
-          padding: '9px 12px',
-          borderRadius: '6px'
-        }}
+        onClick={onStopRecording}
+        className="w-full bg-[#1A1A1A] rounded-xl flex items-center justify-between cursor-pointer animate-slide-up"
+        style={{ padding: '12px 16px' }}
       >
-        <div className="flex items-center" style={{ gap: '8px' }}>
-          <div 
-            className="w-2 h-2 rounded-full bg-[#FFDD00] pulse-recording"
-          ></div>
-          <span 
-            className="text-[#FFDD00]"
-            style={{ fontSize: '10px', fontWeight: 500 }}
-          >
-            Recording…
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="w-2.5 h-2.5 rounded-full bg-[#FFDD00] animate-pulse" />
+          <span className="text-[#FFDD00] text-[13px] font-semibold">Recording…</span>
         </div>
-        <button
-          onClick={onStopRecording}
-          className="text-[#888888] cursor-pointer bg-transparent border-none"
-          style={{ fontSize: '9px' }}
-        >
-          {formatTime(recordingTime)}
-        </button>
+        <span className="text-[#555555] text-xs font-medium">{formatTime(recordingSeconds)}</span>
+      </div>
+    );
+  }
+
+  if (isTranscribing) {
+    return (
+      <div 
+        className="w-full bg-[#1A1A1A] rounded-xl flex items-center justify-between animate-slide-up"
+        style={{ padding: '12px 16px' }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 border-2 border-[#FFDD00] border-t-transparent rounded-full animate-spin" />
+          <span className="text-[#FFDD00] text-[13px] font-semibold">Transcribing…</span>
+        </div>
       </div>
     );
   }
 
   if (transcript) {
     return (
-      <div className="flex flex-col" style={{ gap: '4px' }}>
+      <div className="flex flex-col gap-1 animate-slide-up">
         <label 
-          className="text-[#1A1A1A] uppercase tracking-wider"
-          style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.6px' }}
+          className="text-[#888888] uppercase tracking-wider"
+          style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.6px' }}
         >
           VOICE TRANSCRIPT
         </label>
         <textarea
           value={transcript}
           onChange={(e) => onTranscriptChange(e.target.value)}
-          className="bg-[#F5F5F5] border-none rounded-md text-[#1A1A1A] placeholder:text-[#888888] transition-default focus:outline-none focus:ring-2 focus:ring-[#FFDD00] resize-none"
+          className="bg-[#F5F5F5] border-none rounded-xl text-[#1A1A1A] placeholder:text-[#888888] transition-default focus:outline-none focus:ring-2 focus:ring-[#FFDD00] resize-none"
           style={{ 
-            fontSize: '12px',
-            padding: '9px 10px',
-            borderRadius: '6px',
+            fontSize: '13px',
+            padding: '12px 16px',
             lineHeight: 1.6
           }}
           rows={3}
+          placeholder="Edit transcript if needed..."
         />
       </div>
     );
